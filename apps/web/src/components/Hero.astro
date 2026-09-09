@@ -20,9 +20,9 @@ import Windows from './icons/Windows.astro';
       </p>
 
       <div class="mt-10 flex flex-col items-center gap-3 sm:flex-row">
-        <Button href={downloadUrl} size="lg" data-download-link external={Boolean(site.storeUrl)}>
+        <Button href={downloadUrl} size="lg" data-download-link external>
           <Windows class="size-[15px]" />
-          <span data-download-label>{site.storeUrl ? 'Get it from Microsoft' : 'Microsoft Store launch pending'}</span>
+          <span data-download-label>Download for Windows</span>
         </Button>
       </div>
 

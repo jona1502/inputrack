@@ -8,6 +8,10 @@ export const site = {
   description:
     'Route your physical microphone through your own 64-bit VST3 effects and send the processed signal wherever you need it, through a virtual audio cable.',
   storeUrl: import.meta.env.PUBLIC_INPUTRACK_STORE_URL ?? '',
+  downloadVersion: '0.1.9',
+  downloadUrl:
+    import.meta.env.PUBLIC_INPUTRACK_DOWNLOAD_URL ??
+    'https://github.com/jona1502/inputrack/releases/download/v0.1.9/InputRack-0.1.9-Windows-x64-Setup.exe',
   /**
    * Windows lets only a driver publish a microphone, and ours is not
    * release-signed yet. Until then the chain is published through a virtual
@@ -18,7 +22,7 @@ export const site = {
   cableUrl: 'https://vb-audio.com/Cable/',
 } as const;
 
-export const downloadUrl = site.storeUrl || '#pricing';
+export const downloadUrl = site.downloadUrl;
 
 export const nav = [
   { label: 'Features', href: '#features' },
@@ -126,7 +130,8 @@ export const footerLinks = [
   {
     heading: 'Download',
     links: [
-      { label: site.storeUrl ? 'Microsoft Store' : 'Store launch pending', href: downloadUrl, external: Boolean(site.storeUrl) },
+      { label: `Windows installer v${site.downloadVersion}`, href: downloadUrl, external: true },
+      ...(site.storeUrl ? [{ label: 'Microsoft Store', href: site.storeUrl, external: true }] : []),
     ],
   },
   {

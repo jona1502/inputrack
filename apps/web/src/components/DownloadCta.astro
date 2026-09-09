@@ -27,14 +27,21 @@ import Windows from './icons/Windows.astro';
       </p>
 
       <div class="relative mt-10 flex flex-col items-center gap-3 sm:flex-row">
-        <Button href={downloadUrl} size="lg" data-download-link>
+        <Button href={downloadUrl} size="lg" data-download-link external>
           <Windows class="size-[15px]" />
-          <span data-download-label>{site.storeUrl ? 'Get it from Microsoft' : 'Microsoft Store launch pending'}</span>
+          <span data-download-label>Download .exe</span>
         </Button>
+        {
+          site.storeUrl && (
+            <Button href={site.storeUrl} size="lg" variant="secondary" external>
+              Get it from Microsoft
+            </Button>
+          )
+        }
       </div>
 
       <p class="relative mt-5 text-xs text-mist-600">
-        <span data-download-meta>Windows 11 · x64 · Microsoft Store</span>
+        <span data-download-meta>Windows 11 · x64 · EXE installer · v{site.downloadVersion}</span>
       </p>
 
       <p class="relative mt-3 max-w-md text-xs leading-relaxed text-mist-600">{site.previewNotice}</p>
