@@ -6,6 +6,7 @@
 
 #if JUCE_WINDOWS
 #include <windows.h>
+#include <dwmapi.h>
 #endif
 
 namespace {
@@ -33,6 +34,18 @@ constexpr float controlRadius = 8.0f;
 // The status-strip readout is measured as well as drawn, so both use one font.
 constexpr float readoutFontHeight = 10.5f;
 constexpr int readoutPadding = 8;
+
+void applyDarkTitleBar([[maybe_unused]] juce::Component& window)
+{
+#if JUCE_WINDOWS
+    if (auto* peer = window.getPeer()) {
+        const BOOL dark = TRUE;
+        auto* handle = static_cast<HWND>(peer->getNativeHandle());
+        if (FAILED(DwmSetWindowAttribute(handle, 20, &dark, sizeof(dark))))
+            DwmSetWindowAttribute(handle, 19, &dark, sizeof(dark));
+    }
+#endif
+}
 
 juce::File pluginDataDirectory()
 {
@@ -1801,7 +1814,7 @@ void MainComponent::showSettings()
     options.escapeKeyTriggersCloseButton = true;
     options.useNativeTitleBar = true;
     options.resizable = false;
-    options.launchAsync();
+    if (auto* dialog = options.launchAsync()) applyDarkTitleBar(*dialog);
 }
 
 void MainComponent::showSetupAssistant()
