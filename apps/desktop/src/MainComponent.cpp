@@ -506,11 +506,13 @@ public:
             hotkeys.addChoice(actions, static_cast<int>(owner.hotkeyConfigs[slot].action) + 1,
                 [this, slot](int id) {
                     owner.hotkeyConfigs[slot].action = static_cast<HotkeyAction>(id - 1);
+                    owner.saveSettings();
                     owner.rebuildGlobalHotkeys();
                 });
             hotkeys.addChoice(shortcuts, owner.hotkeyConfigs[slot].shortcutPreset,
                 [this, slot](int id) {
                     owner.hotkeyConfigs[slot].shortcutPreset = id;
+                    owner.saveSettings();
                     owner.rebuildGlobalHotkeys();
                 });
         }
@@ -1556,6 +1558,7 @@ void MainComponent::toggleGlobalBypass()
 void MainComponent::toggleMicrophoneMute()
 {
     engine.setMuted(!engine.isMuted());
+    saveSettings();
     updateMuteButton();
     status.setText(engine.isMuted() ? "Microphone muted." : "Microphone active.",
                    juce::dontSendNotification);
@@ -1965,6 +1968,16 @@ void MainComponent::loadSettings()
     activeProfileName = settings.getProperty("activeProfile", {}).toString();
     setupAssistantSeen = static_cast<bool>(settings.getProperty("setupAssistantSeen", false));
     storedSampleRate = static_cast<double>(settings.getProperty("sampleRate", 0.0));
+    engine.setMuted(static_cast<bool>(settings.getProperty("microphoneMuted", false)));
+    for (int slot = 0; slot < 2; ++slot) {
+        const auto action = static_cast<int>(settings.getProperty(
+            "hotkey" + juce::String(slot + 1) + "Action", slot));
+        const auto shortcut = static_cast<int>(settings.getProperty(
+            "hotkey" + juce::String(slot + 1) + "Shortcut", slot + 1));
+        hotkeyConfigs[slot].action = static_cast<HotkeyAction>(juce::jlimit(0, 2, action));
+        hotkeyConfigs[slot].shortcutPreset = juce::jlimit(1, 6, shortcut);
+    }
+    updateMuteButton();
     const auto id = stored == "manufacturer" ? 2 : stored == "category" ? 3 : 1;
     // A missing or damaged file must not keep the picker empty, so anything
     // unrecognised falls back to sorting by name.
@@ -1982,6 +1995,13 @@ void MainComponent::saveSettings() const
     settings->setProperty("activeProfile", activeProfileName);
     settings->setProperty("setupAssistantSeen", setupAssistantSeen);
     settings->setProperty("sampleRate", storedSampleRate);
+    settings->setProperty("microphoneMuted", engine.isMuted());
+    for (int slot = 0; slot < 2; ++slot) {
+        settings->setProperty("hotkey" + juce::String(slot + 1) + "Action",
+                              static_cast<int>(hotkeyConfigs[slot].action));
+        settings->setProperty("hotkey" + juce::String(slot + 1) + "Shortcut",
+                              hotkeyConfigs[slot].shortcutPreset);
+    }
     settingsFile().replaceWithText(juce::JSON::toString(juce::var(settings.get())));
 }
 
