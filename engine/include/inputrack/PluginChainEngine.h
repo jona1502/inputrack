@@ -3,6 +3,7 @@
 #include <inputrack/MeteringProcessor.h>
 #include <inputrack/VirtualMicrophone.h>
 #include <juce_audio_utils/juce_audio_utils.h>
+#include <atomic>
 #include <optional>
 
 namespace inputrack {
@@ -48,6 +49,9 @@ public:
     /** Bypasses the whole rack at once, leaving the per-plug-in flags untouched. */
     void setGloballyBypassed(bool);
     bool isGloballyBypassed() const noexcept;
+    /** Silences every published and monitored sample without rebuilding the rack. */
+    void setMuted(bool) noexcept;
+    bool isMuted() const noexcept;
     void setMonitoringEnabled(bool);
     bool isMonitoringEnabled() const noexcept;
     /** Peak sample magnitude since the last call, 0 for an unknown channel. */
@@ -103,7 +107,8 @@ private:
     juce::Array<HostedPlugin> chain;
     bool monitoringEnabled{};
     bool globallyBypassed{};
-    juce::AudioProcessorGraph::Node::Ptr inputMeterNode, outputMeterNode;
+    juce::AudioProcessorGraph::Node::Ptr inputMeterNode, masterMuteNode, outputMeterNode;
+    std::atomic<bool> muted{};
     MeteringProcessor* inputMeter{};
     MeteringProcessor* outputMeter{};
 };
