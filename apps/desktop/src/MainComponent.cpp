@@ -367,9 +367,11 @@ void InputRackLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button&
 {
     const auto isPrimary = button.getComponentID() == "primary";
     const auto isDanger = button.getComponentID() == "danger";
+    const auto isDangerActive = button.getComponentID() == "dangerActive";
     const auto bounds = button.getLocalBounds().toFloat().reduced(0.5f);
 
-    auto colour = isPrimary ? juce::Colour(accent) : juce::Colour(surfaceRaised);
+    auto colour = isPrimary ? juce::Colour(accent)
+                            : isDangerActive ? juce::Colour(danger) : juce::Colour(surfaceRaised);
     if (isPrimary) {
         if (down) colour = juce::Colour(accentDeep);
         else if (highlighted) colour = juce::Colour(accentBright);
@@ -386,7 +388,7 @@ void InputRackLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button&
     g.setColour(colour.withMultipliedAlpha(button.isEnabled() ? 1.0f : 0.45f));
     g.fillRoundedRectangle(bounds, controlRadius);
 
-    if (!isPrimary) {
+    if (!isPrimary && !isDangerActive) {
         auto outline = juce::Colour(border);
         if (isDanger && highlighted) outline = juce::Colour(0xff7d3a4a);
         else if (highlighted) outline = outline.brighter(0.22f);
@@ -412,7 +414,8 @@ void InputRackLookAndFeel::drawButtonText(juce::Graphics& g, juce::TextButton& b
         return;
     }
     const auto isPrimary = button.getComponentID() == "primary";
-    const auto colour = isPrimary ? juce::Colour(onAccent) : juce::Colour(text);
+    const auto isDangerActive = button.getComponentID() == "dangerActive";
+    const auto colour = isPrimary || isDangerActive ? juce::Colour(onAccent) : juce::Colour(text);
     g.setColour(colour.withMultipliedAlpha(button.isEnabled() ? 1.0f : 0.5f));
     g.setFont(juce::FontOptions(13.0f, isPrimary ? juce::Font::bold : juce::Font::plain));
     // Ten points of breathing room suits a full-width button and swallows a
@@ -798,11 +801,11 @@ MainComponent::MainComponent()
     setLookAndFeel(&lookAndFeel);
     for (auto* component : std::initializer_list<juce::Component*>{
              &inputDevice, &outputDevice, &chainList, &addEffect, &presets, &appMenu,
-             &proButton, &monitor})
+             &proButton, &monitor, &mute})
         addAndMakeVisible(component);
 
     for (auto* button : std::initializer_list<juce::Button*>{
-             &scan, &monitor, &addEffect, &presets, &appMenu, &proButton})
+             &scan, &monitor, &mute, &addEffect, &presets, &appMenu, &proButton})
         button->addListener(this);
 
     scan.setComponentID("secondary");
@@ -827,6 +830,8 @@ MainComponent::MainComponent()
     monitor.setToggleState(engine.isMonitoringEnabled(), juce::dontSendNotification);
     monitor.setButtonText(engine.isMonitoringEnabled() ? "Monitor on" : "Monitor off");
     monitor.setComponentID(engine.isMonitoringEnabled() ? "primary" : "secondary");
+    mute.setClickingTogglesState(true);
+    updateMuteButton();
     engine.deviceManager().addChangeListener(this);
     // A row carries its name, its channel count and two buttons; nothing in it
     // needs the height the parameter knobs used to ask for.
@@ -1061,6 +1066,8 @@ void MainComponent::resized()
     auto strip = statusStrip.reduced(12, 5);
     strip.removeFromLeft(284);
     monitor.setBounds(strip.removeFromRight(112));
+    strip.removeFromRight(8);
+    mute.setBounds(strip.removeFromRight(112));
 #if !INPUTRACK_STORE_BUILD
     strip.removeFromRight(8);
     checkUpdates.setBounds(strip.removeFromRight(142));
@@ -1218,6 +1225,7 @@ void MainComponent::buttonClicked(juce::Button* button)
         monitor.repaint();
         status.setText(routingStatus(), juce::dontSendNotification);
     }
+    else if (button == &mute) toggleMicrophoneMute();
 #if !INPUTRACK_STORE_BUILD
     else if (button == &checkUpdates) startUpdateCheck(true);
     else if (button == &installUpdate) startUpdateDownload();
@@ -1498,6 +1506,23 @@ void MainComponent::toggleGlobalBypass()
     status.setText(engine.isGloballyBypassed() ? "All effects bypassed (Ctrl+Alt+B)."
                                                : "All effects enabled (Ctrl+Alt+B).",
                    juce::dontSendNotification);
+}
+
+void MainComponent::toggleMicrophoneMute()
+{
+    engine.setMuted(!engine.isMuted());
+    updateMuteButton();
+    status.setText(engine.isMuted() ? "Microphone muted." : "Microphone active.",
+                   juce::dontSendNotification);
+}
+
+void MainComponent::updateMuteButton()
+{
+    const auto muted = engine.isMuted();
+    mute.setToggleState(muted, juce::dontSendNotification);
+    mute.setButtonText(muted ? "Mic Muted" : "Mute Mic");
+    mute.setComponentID(muted ? "dangerActive" : "secondary");
+    mute.repaint();
 }
 
 void MainComponent::showProMenu()

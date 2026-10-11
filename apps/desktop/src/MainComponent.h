@@ -95,6 +95,8 @@ private:
     void activateProfileAtIndex(int index);
     void pollAutomaticProfile();
     void toggleGlobalBypass();
+    void toggleMicrophoneMute();
+    void updateMuteButton();
     void showProMenu();
     void refreshEntitlement(bool requestedByUser);
     void purchasePro();
@@ -123,6 +125,7 @@ private:
     juce::TextButton appMenu{"..."};
     juce::TextButton scan{"Scan VST3"};
     juce::TextButton monitor{"Monitor off"};
+    juce::TextButton mute{"Mute Mic"};
 #if !INPUTRACK_STORE_BUILD
     juce::TextButton checkUpdates{"Check for updates"};
     juce::TextButton installUpdate{"Install update"};
