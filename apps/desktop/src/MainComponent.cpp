@@ -263,9 +263,9 @@ public:
 
 class MainComponent::GlobalHotkeys final {
 public:
-    GlobalHotkeys(std::function<void()> bypassCallback,
+    GlobalHotkeys(const HotkeyConfig (&configs)[2], std::function<void(int)> slotCallback,
                   std::function<void(int)> profileCallback)
-        : bypass(std::move(bypassCallback)), selectProfile(std::move(profileCallback))
+        : triggerSlot(std::move(slotCallback)), selectProfile(std::move(profileCallback))
     {
 #if JUCE_WINDOWS
         WNDCLASSW windowClass{};
@@ -277,7 +277,7 @@ public:
         window = CreateWindowExW(0, windowClass.lpszClassName, L"", 0, 0, 0, 0, 0,
                                  HWND_MESSAGE, nullptr, windowClass.hInstance, this);
         if (window == nullptr) return;
-        registerHotkey(1, 'B', "Ctrl+Alt+B");
+        for (int slot = 0; slot < 2; ++slot) registerSlot(slot, configs[slot].shortcutPreset);
         for (int i = 0; i < 9; ++i)
             registerHotkey(100 + i, '1' + i, "Ctrl+Alt+" + juce::String(i + 1));
 #endif
@@ -315,7 +315,7 @@ private:
             SetWindowLongPtrW(handle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(self));
         }
         if (message == WM_HOTKEY && self != nullptr) {
-            if (wParam == 1) self->bypass();
+            if (wParam == 1 || wParam == 2) self->triggerSlot(static_cast<int>(wParam - 1));
             else if (wParam >= 100 && wParam < 109)
                 self->selectProfile(static_cast<int>(wParam - 100));
             return 0;
@@ -331,11 +331,29 @@ private:
             failedCombinations.add(label);
     }
 
+    void registerSlot(int slot, int preset)
+    {
+        static constexpr unsigned int modifiers[] = {
+            MOD_CONTROL | MOD_ALT, MOD_CONTROL | MOD_ALT,
+            MOD_CONTROL | MOD_SHIFT, MOD_CONTROL | MOD_SHIFT, MOD_ALT, MOD_ALT
+        };
+        static constexpr unsigned int keys[] = {'M', 'B', 'M', 'B', VK_F9, VK_F10};
+        static const char* labels[] = {
+            "Ctrl+Alt+M", "Ctrl+Alt+B", "Ctrl+Shift+M",
+            "Ctrl+Shift+B", "Alt+F9", "Alt+F10"
+        };
+        const auto index = juce::jlimit(1, 6, preset) - 1;
+        if (RegisterHotKey(window, slot + 1, modifiers[index] | MOD_NOREPEAT, keys[index]) != FALSE)
+            registeredIds.add(slot + 1);
+        else
+            failedCombinations.add(labels[index]);
+    }
+
     HWND window{};
     juce::Array<int> registeredIds;
     juce::StringArray failedCombinations;
 #endif
-    std::function<void()> bypass;
+    std::function<void(int)> triggerSlot;
     std::function<void(int)> selectProfile;
 };
 
@@ -480,7 +498,22 @@ public:
         audio.addText("Sample rate: " + juce::String(owner.engine.sampleRate() / 1000.0, 1) + " kHz");
 
         hotkeys.addText("Global hotkeys", true);
-        hotkeys.addText("Two configurable hotkey slots will be available here.");
+        static const juce::StringArray actions{"Mute microphone", "Bypass effects", "Toggle monitoring"};
+        static const juce::StringArray shortcuts{
+            "Ctrl+Alt+M", "Ctrl+Alt+B", "Ctrl+Shift+M", "Ctrl+Shift+B", "Alt+F9", "Alt+F10"};
+        for (int slot = 0; slot < 2; ++slot) {
+            hotkeys.addText("Hotkey " + juce::String(slot + 1));
+            hotkeys.addChoice(actions, static_cast<int>(owner.hotkeyConfigs[slot].action) + 1,
+                [this, slot](int id) {
+                    owner.hotkeyConfigs[slot].action = static_cast<HotkeyAction>(id - 1);
+                    owner.rebuildGlobalHotkeys();
+                });
+            hotkeys.addChoice(shortcuts, owner.hotkeyConfigs[slot].shortcutPreset,
+                [this, slot](int id) {
+                    owner.hotkeyConfigs[slot].shortcutPreset = id;
+                    owner.rebuildGlobalHotkeys();
+                });
+        }
 
         plugins.addText("VST3 plug-ins", true);
         plugins.addAction("Scan VST3 effects", [this] { owner.scanPlugins(); });
@@ -522,6 +555,17 @@ private:
             order.add(button);
         }
 
+        void addChoice(const juce::StringArray& choices, int selected,
+                       std::function<void(int)> changed)
+        {
+            auto* choice = choicesOwned.add(new juce::ComboBox());
+            for (int i = 0; i < choices.size(); ++i) choice->addItem(choices[i], i + 1);
+            choice->setSelectedId(selected, juce::dontSendNotification);
+            choice->onChange = [choice, changed = std::move(changed)] { changed(choice->getSelectedId()); };
+            addAndMakeVisible(choice);
+            order.add(choice);
+        }
+
         void paint(juce::Graphics& g) override { g.fillAll(juce::Colour(surface)); }
         void resized() override
         {
@@ -537,6 +581,7 @@ private:
     private:
         juce::OwnedArray<juce::Label> labels;
         juce::OwnedArray<juce::TextButton> buttons;
+        juce::OwnedArray<juce::ComboBox> choicesOwned;
         juce::Array<juce::Component*> order;
     };
 
@@ -1525,6 +1570,35 @@ void MainComponent::updateMuteButton()
     mute.repaint();
 }
 
+void MainComponent::triggerHotkeyAction(int slot)
+{
+    if (!juce::isPositiveAndBelow(slot, 2)) return;
+    switch (hotkeyConfigs[slot].action) {
+        case HotkeyAction::toggleMute: toggleMicrophoneMute(); break;
+        case HotkeyAction::toggleBypass: toggleGlobalBypass(); break;
+        case HotkeyAction::toggleMonitoring:
+            engine.setMonitoringEnabled(!engine.isMonitoringEnabled());
+            monitor.setToggleState(engine.isMonitoringEnabled(), juce::dontSendNotification);
+            monitor.setButtonText(engine.isMonitoringEnabled() ? "Monitor on" : "Monitor off");
+            monitor.setComponentID(engine.isMonitoringEnabled() ? "primary" : "secondary");
+            monitor.repaint();
+            break;
+    }
+}
+
+void MainComponent::rebuildGlobalHotkeys()
+{
+    const auto hasAccess = inputrack::hasFeatureAccess(
+        inputrack::ProductFeature::globalHotkeys, entitlement->state());
+    globalHotkeys.reset();
+    if (!hasAccess) return;
+    globalHotkeys = std::make_unique<GlobalHotkeys>(hotkeyConfigs,
+        [this](int slot) { triggerHotkeyAction(slot); },
+        [this](int index) { activateProfileAtIndex(index); });
+    const auto failure = globalHotkeys->failureMessage();
+    if (failure.isNotEmpty()) status.setText(failure, juce::dontSendNotification);
+}
+
 void MainComponent::showProMenu()
 {
     juce::PopupMenu popup;
@@ -1605,9 +1679,7 @@ void MainComponent::updateEntitlementUi(const inputrack::EntitlementResult& resu
     const auto hasHotkeyAccess = inputrack::hasFeatureAccess(
         inputrack::ProductFeature::globalHotkeys, result);
     if (hasHotkeyAccess && globalHotkeys == nullptr) {
-        globalHotkeys = std::make_unique<GlobalHotkeys>(
-            [this] { toggleGlobalBypass(); },
-            [this](int index) { activateProfileAtIndex(index); });
+        rebuildGlobalHotkeys();
         hotkeyWarning = globalHotkeys->failureMessage();
         if (restoreActiveProfile && activeProfileName.isNotEmpty()) {
             if (const auto profile = profiles.find(activeProfileName); profile.has_value())
@@ -1642,9 +1714,9 @@ void MainComponent::showApplicationMenu()
     const auto hotkeyFailure = globalHotkeys != nullptr
         ? globalHotkeys->failureMessage() : juce::String{};
     popup.addItem(6, !hasProAccess
-                         ? "Hotkeys: Ctrl+Alt+B, Ctrl+Alt+1..9 (Pro)"
+                         ? "Configurable hotkeys (Pro)"
                          : hotkeyFailure.isEmpty()
-                             ? "Hotkeys active: Ctrl+Alt+B, Ctrl+Alt+1..9"
+                             ? "Configurable hotkeys active"
                              : "Some global hotkeys are unavailable",
                   !hasProAccess);
 #if !INPUTRACK_STORE_BUILD

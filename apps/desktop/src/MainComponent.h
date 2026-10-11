@@ -41,6 +41,11 @@ public:
     void mouseExit(const juce::MouseEvent&) override;
 
 private:
+    enum class HotkeyAction { toggleMute, toggleBypass, toggleMonitoring };
+    struct HotkeyConfig {
+        HotkeyAction action{HotkeyAction::toggleMute};
+        int shortcutPreset{1};
+    };
     class PluginRowComponent;
     class PluginBrowserComponent;
     class SettingsComponent;
@@ -97,6 +102,8 @@ private:
     void toggleGlobalBypass();
     void toggleMicrophoneMute();
     void updateMuteButton();
+    void triggerHotkeyAction(int slot);
+    void rebuildGlobalHotkeys();
     void showProMenu();
     void refreshEntitlement(bool requestedByUser);
     void purchasePro();
@@ -140,6 +147,8 @@ private:
     int profileDialogEditIndex{-1};
     std::unique_ptr<juce::AlertWindow> setupDialog;
     std::unique_ptr<GlobalHotkeys> globalHotkeys;
+    HotkeyConfig hotkeyConfigs[2]{{HotkeyAction::toggleMute, 1},
+                                  {HotkeyAction::toggleBypass, 2}};
     double storedSampleRate{};
     int automaticProfilePollTicks{};
     int trialRefreshTicks{};
