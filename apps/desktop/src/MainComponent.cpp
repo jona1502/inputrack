@@ -540,6 +540,10 @@ public:
     PluginRowComponent(MainComponent& ownerIn, int rowIn)
         : owner(ownerIn), row(rowIn), power("ON"), menu("...")
     {
+        // A row is the sole renderer for its area.  Marking it opaque also
+        // prevents ListBox's model layer from ever bleeding through while a
+        // recycled row component is being moved or repainted.
+        setOpaque(true);
         addAndMakeVisible(power);
         addAndMakeVisible(menu);
         power.setComponentID("secondary");
@@ -568,6 +572,7 @@ public:
 
     void paint(juce::Graphics& g) override
     {
+        g.fillAll(juce::Colour(surface));
         auto card = getLocalBounds().toFloat().reduced(4.0f, 3.0f);
         g.setColour(selected ? juce::Colour(accent).withAlpha(0.075f)
                              : juce::Colour(surfaceRaised));
