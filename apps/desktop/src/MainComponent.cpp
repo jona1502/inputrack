@@ -623,8 +623,6 @@ private:
             g.fillRoundedRectangle(card, 12.0f);
             g.setColour(juce::Colour(border));
             g.drawRoundedRectangle(card.reduced(0.5f), 12.0f, 1.0f);
-            g.setColour(juce::Colour(accent));
-            g.fillRoundedRectangle(card.withWidth(3.0f).reduced(0.0f, 12.0f), 1.5f);
         }
         void resized() override
         {
