@@ -84,10 +84,11 @@ account data and the gate fails clearly until they are provided.
 
 ## Legacy direct-build updates
 
-Direct builds retain the legacy GitHub update checker for compatibility with the
-public previews released through version 0.1.9. No newer consumer installers are
-published there. `UpdateChecker` (`update/`) queries the public releases API at
-most once a day, records the timestamp in
+Direct builds use the GitHub update checker. Pushing a stable
+`vMAJOR.MINOR.PATCH` tag runs the Windows release workflow, builds the direct
+installer and checksum, and publishes both to the matching GitHub release.
+`UpdateChecker` (`update/`) queries the public releases API at most once a day,
+records the timestamp in
 `%APPDATA%\InputRack\update-check.json`, and offers an install button in the
 status strip. A second button there starts the check on demand.
 
