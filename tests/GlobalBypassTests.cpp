@@ -89,6 +89,7 @@ int main()
     engine.formatManager().addFormat(new TestFormat());
 
     expect(!engine.isGloballyBypassed(), "the rack starts audible");
+    expect(!engine.isMuted(), "the microphone starts unmuted");
 
     juce::String error;
     expect(engine.addPlugin(description("Compressor", "compressor"), error),
@@ -99,6 +100,14 @@ int main()
     expect(engine.isGloballyBypassed(), "global bypass reports as active once set");
     expect(engine.pluginCount() == 1 && !engine.isBypassed(0),
            "global bypass leaves the chain contents and per-plug-in flags untouched");
+
+    engine.setMuted(true);
+    expect(engine.isMuted(), "master mute reports as active");
+    expect(engine.isGloballyBypassed(), "master mute does not change global bypass");
+    expect(engine.pluginCount() == 1 && !engine.isBypassed(0),
+           "master mute leaves the rack contents and plug-in state untouched");
+    engine.setMuted(false);
+    expect(!engine.isMuted(), "master mute can be released");
 
     engine.setGloballyBypassed(false);
     expect(!engine.isGloballyBypassed(), "global bypass can be released again");

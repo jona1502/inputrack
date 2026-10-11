@@ -52,6 +52,10 @@ add_executable(global_bypass_tests GlobalBypassTests.cpp)
 target_link_libraries(global_bypass_tests PRIVATE inputrack_engine)
 add_test(NAME global_bypass_tests COMMAND global_bypass_tests)
 
+add_executable(master_mute_processor_tests MasterMuteProcessorTests.cpp)
+target_link_libraries(master_mute_processor_tests PRIVATE inputrack_engine)
+add_test(NAME master_mute_processor_tests COMMAND master_mute_processor_tests)
+
 add_executable(profile_store_tests ProfileStoreTests.cpp)
 target_link_libraries(profile_store_tests PRIVATE inputrack_workflow)
 add_test(NAME profile_store_tests COMMAND profile_store_tests)
