@@ -475,15 +475,19 @@ void InputRackLookAndFeel::drawTabButton(juce::TabBarButton& button, juce::Graph
                                          bool isMouseOver, bool isMouseDown)
 {
     const auto active = button.isFrontTab();
-    auto bounds = button.getActiveArea().toFloat().reduced(4.0f, 5.0f);
-    auto fill = active ? juce::Colour(accent).withAlpha(0.16f)
-                       : juce::Colour(surfaceRaised).withAlpha(isMouseOver ? 0.95f : 0.55f);
-    if (isMouseDown) fill = fill.brighter(0.08f);
-    g.setColour(fill);
-    g.fillRoundedRectangle(bounds, 7.0f);
-    g.setColour(active ? juce::Colour(accent).withAlpha(0.7f) : juce::Colour(border));
-    g.drawRoundedRectangle(bounds.reduced(0.5f), 7.0f, 1.0f);
-    if (active) g.fillRoundedRectangle(bounds.removeFromBottom(2.0f), 1.0f);
+    auto bounds = button.getActiveArea().toFloat().reduced(7.0f, 6.0f);
+    if (active || isMouseOver) {
+        auto fill = active ? juce::Colour(accent).withAlpha(isMouseDown ? 0.18f : 0.11f)
+                           : juce::Colour(text).withAlpha(isMouseDown ? 0.08f : 0.04f);
+        g.setColour(fill);
+        g.fillRoundedRectangle(bounds, 6.0f);
+    }
+    if (active) {
+        const auto underlineWidth = juce::jmin(34.0f, bounds.getWidth() * 0.42f);
+        g.setColour(juce::Colour(accent));
+        g.fillRoundedRectangle(bounds.getCentreX() - underlineWidth * 0.5f,
+                               bounds.getBottom() - 2.0f, underlineWidth, 2.0f, 1.0f);
+    }
     g.setColour(active ? juce::Colour(accentBright) : juce::Colour(textMuted));
     g.setFont(juce::FontOptions(12.0f, active ? juce::Font::bold : juce::Font::plain));
     g.drawText(button.getButtonText(), button.getActiveArea(), juce::Justification::centred);
