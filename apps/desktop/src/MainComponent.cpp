@@ -398,6 +398,19 @@ void InputRackLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button&
 void InputRackLookAndFeel::drawButtonText(juce::Graphics& g, juce::TextButton& button,
                                             bool, bool)
 {
+    if (button.getComponentID() == "settings") {
+        const auto centre = button.getLocalBounds().toFloat().getCentre();
+        g.setColour(juce::Colour(text));
+        g.drawEllipse(centre.x - 4.0f, centre.y - 4.0f, 8.0f, 8.0f, 1.8f);
+        g.drawEllipse(centre.x - 1.2f, centre.y - 1.2f, 2.4f, 2.4f, 1.2f);
+        for (int i = 0; i < 8; ++i) {
+            const auto angle = juce::MathConstants<float>::twoPi * static_cast<float>(i) / 8.0f;
+            const auto inner = centre + juce::Point<float>(std::cos(angle), std::sin(angle)) * 5.0f;
+            const auto outer = centre + juce::Point<float>(std::cos(angle), std::sin(angle)) * 8.0f;
+            g.drawLine({inner, outer}, 1.8f);
+        }
+        return;
+    }
     const auto isPrimary = button.getComponentID() == "primary";
     const auto colour = isPrimary ? juce::Colour(onAccent) : juce::Colour(text);
     g.setColour(colour.withMultipliedAlpha(button.isEnabled() ? 1.0f : 0.5f));
@@ -436,6 +449,98 @@ void InputRackLookAndFeel::positionComboBoxText(juce::ComboBox& box, juce::Label
     label.setBounds(12, 1, box.getWidth() - 40, box.getHeight() - 2);
     label.setFont(juce::FontOptions(13.0f));
 }
+
+class MainComponent::SettingsComponent final : public juce::Component {
+public:
+    explicit SettingsComponent(MainComponent& ownerIn) : owner(ownerIn), tabs(juce::TabbedButtonBar::TabsAtTop)
+    {
+        addAndMakeVisible(tabs);
+        tabs.setOutline(0);
+        tabs.setTabBarDepth(38);
+        tabs.addTab("General", juce::Colour(surface), &general, false);
+        tabs.addTab("Audio", juce::Colour(surface), &audio, false);
+        tabs.addTab("Hotkeys", juce::Colour(surface), &hotkeys, false);
+        tabs.addTab("Plugins", juce::Colour(surface), &plugins, false);
+        tabs.addTab("License", juce::Colour(surface), &license, false);
+
+        general.addText("Application settings", true);
+        general.addAction("Run setup assistant", [this] { owner.showSetupAssistant(); });
+        general.addAction("Windows startup settings", [] {
+            juce::URL("ms-settings:startupapps").launchInDefaultBrowser();
+        });
+#if !INPUTRACK_STORE_BUILD
+        general.addAction("Check for updates", [this] { owner.startUpdateCheck(true); });
+#endif
+
+        audio.addText("Audio devices and routing", true);
+        audio.addText("Input and output devices remain available in the main window.");
+        audio.addText("Sample rate: " + juce::String(owner.engine.sampleRate() / 1000.0, 1) + " kHz");
+
+        hotkeys.addText("Global hotkeys", true);
+        hotkeys.addText("Two configurable hotkey slots will be available here.");
+
+        plugins.addText("VST3 plug-ins", true);
+        plugins.addAction("Scan VST3 effects", [this] { owner.scanPlugins(); });
+        plugins.addAction("Rescan skipped plug-ins", [this] { owner.rescanBlockedPlugins(); });
+
+        license.addText("InputRack license", true);
+        const auto state = owner.entitlement->state();
+        license.addText(state.permanent ? "Status: Pro active"
+            : state.trial ? "Status: Pro trial - " + juce::String(state.trialDaysRemaining) + " day(s) left"
+                          : "Status: Free");
+        license.addAction("Manage Pro", [this] { owner.showProMenu(); });
+        license.addAction("Restore purchases", [this] { owner.refreshEntitlement(true); });
+        license.addText("Version " + juce::String(juce::JUCEApplication::getInstance()->getApplicationVersion()));
+        setSize(720, 500);
+    }
+
+    void resized() override { tabs.setBounds(getLocalBounds()); }
+
+private:
+    class Page final : public juce::Component {
+    public:
+        void addText(const juce::String& value, bool heading = false)
+        {
+            auto* label = labels.add(new juce::Label());
+            label->setText(value, juce::dontSendNotification);
+            label->setFont(juce::FontOptions(heading ? 17.0f : 13.0f,
+                                             heading ? juce::Font::bold : juce::Font::plain));
+            label->setColour(juce::Label::textColourId, juce::Colour(heading ? text : textMuted));
+            addAndMakeVisible(label);
+            order.add(label);
+        }
+
+        void addAction(const juce::String& title, std::function<void()> action)
+        {
+            auto* button = buttons.add(new juce::TextButton(title));
+            button->setComponentID("secondary");
+            button->onClick = std::move(action);
+            addAndMakeVisible(button);
+            order.add(button);
+        }
+
+        void paint(juce::Graphics& g) override { g.fillAll(juce::Colour(surface)); }
+        void resized() override
+        {
+            auto area = getLocalBounds().reduced(28, 24);
+            for (auto* component : order) {
+                const auto isButton = dynamic_cast<juce::Button*>(component) != nullptr;
+                component->setBounds(area.removeFromTop(isButton ? 36 : 30)
+                                         .withWidth(isButton ? 250 : area.getWidth()));
+                area.removeFromTop(isButton ? 10 : 4);
+            }
+        }
+
+    private:
+        juce::OwnedArray<juce::Label> labels;
+        juce::OwnedArray<juce::TextButton> buttons;
+        juce::Array<juce::Component*> order;
+    };
+
+    MainComponent& owner;
+    juce::TabbedComponent tabs;
+    Page general, audio, hotkeys, plugins, license;
+};
 
 class MainComponent::PluginBrowserComponent final : public juce::Component,
                                                     private juce::ListBoxModel {
@@ -715,7 +820,9 @@ MainComponent::MainComponent()
     presets.setComponentID("secondary");
     presets.setButtonText("Profiles");
     proButton.setComponentID("primary");
-    appMenu.setComponentID("secondary");
+    appMenu.setComponentID("settings");
+    appMenu.setButtonText("Settings");
+    appMenu.setTooltip("Settings");
     monitor.setClickingTogglesState(true);
     monitor.setToggleState(engine.isMonitoringEnabled(), juce::dontSendNotification);
     monitor.setButtonText(engine.isMonitoringEnabled() ? "Monitor on" : "Monitor off");
@@ -1101,7 +1208,7 @@ void MainComponent::buttonClicked(juce::Button* button)
     if (button == &addEffect) showPluginBrowser();
     else if (button == &presets) showPresetMenu();
     else if (button == &proButton) showProMenu();
-    else if (button == &appMenu) showApplicationMenu();
+    else if (button == &appMenu) showSettings();
     else if (button == &scan) scanPlugins();
     else if (button == &monitor) {
         const auto enabled = monitor.getToggleState();
@@ -1537,6 +1644,18 @@ void MainComponent::showApplicationMenu()
             else if (result == 6) safeThis->showProMenu();
             else if (result == 7) safeThis->showSetupAssistant();
         });
+}
+
+void MainComponent::showSettings()
+{
+    juce::DialogWindow::LaunchOptions options;
+    options.dialogTitle = "InputRack Settings";
+    options.dialogBackgroundColour = juce::Colour(surface);
+    options.content.setOwned(new SettingsComponent(*this));
+    options.escapeKeyTriggersCloseButton = true;
+    options.useNativeTitleBar = true;
+    options.resizable = false;
+    options.launchAsync();
 }
 
 void MainComponent::showSetupAssistant()

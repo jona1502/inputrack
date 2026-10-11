@@ -43,6 +43,7 @@ public:
 private:
     class PluginRowComponent;
     class PluginBrowserComponent;
+    class SettingsComponent;
     class GlobalHotkeys;
 
     int getNumRows() override;
@@ -102,6 +103,7 @@ private:
     void showSetupAssistant();
     void runRoutingTest();
     void showApplicationMenu();
+    void showSettings();
     void selectAndOpenPlugin(int row);
     void togglePluginBypass(int row);
     void movePluginRow(int row, int destination);
