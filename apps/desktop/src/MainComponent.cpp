@@ -1466,7 +1466,7 @@ void MainComponent::updateEntitlementUi(const inputrack::EntitlementResult& resu
 {
     juce::String hotkeyWarning;
     proButton.setEnabled(true);
-    proButton.setButtonText(result.permanent ? "Pro  ✓"
+    proButton.setButtonText(result.permanent ? "Pro Active"
         : result.trial ? "Trial " + juce::String(result.trialDaysRemaining) + "d"
                        : "Get Pro");
     proButton.setComponentID(result.hasProAccess() ? "secondary" : "primary");
