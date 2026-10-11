@@ -23,6 +23,8 @@ public:
                       int buttonX, int buttonY, int buttonW, int buttonH,
                       juce::ComboBox&) override;
     void positionComboBoxText(juce::ComboBox&, juce::Label&) override;
+    void drawTabButton(juce::TabBarButton&, juce::Graphics&, bool isMouseOver,
+                       bool isMouseDown) override;
 };
 
 class MainComponent final : public juce::Component,

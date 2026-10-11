@@ -471,13 +471,33 @@ void InputRackLookAndFeel::positionComboBoxText(juce::ComboBox& box, juce::Label
     label.setFont(juce::FontOptions(13.0f));
 }
 
+void InputRackLookAndFeel::drawTabButton(juce::TabBarButton& button, juce::Graphics& g,
+                                         bool isMouseOver, bool isMouseDown)
+{
+    const auto active = button.isFrontTab();
+    auto bounds = button.getActiveArea().toFloat().reduced(4.0f, 5.0f);
+    auto fill = active ? juce::Colour(accent).withAlpha(0.16f)
+                       : juce::Colour(surfaceRaised).withAlpha(isMouseOver ? 0.95f : 0.55f);
+    if (isMouseDown) fill = fill.brighter(0.08f);
+    g.setColour(fill);
+    g.fillRoundedRectangle(bounds, 7.0f);
+    g.setColour(active ? juce::Colour(accent).withAlpha(0.7f) : juce::Colour(border));
+    g.drawRoundedRectangle(bounds.reduced(0.5f), 7.0f, 1.0f);
+    if (active) g.fillRoundedRectangle(bounds.removeFromBottom(2.0f), 1.0f);
+    g.setColour(active ? juce::Colour(accentBright) : juce::Colour(textMuted));
+    g.setFont(juce::FontOptions(12.0f, active ? juce::Font::bold : juce::Font::plain));
+    g.drawText(button.getButtonText(), button.getActiveArea(), juce::Justification::centred);
+}
+
 class MainComponent::SettingsComponent final : public juce::Component {
 public:
     explicit SettingsComponent(MainComponent& ownerIn) : owner(ownerIn), tabs(juce::TabbedButtonBar::TabsAtTop)
     {
         addAndMakeVisible(tabs);
         tabs.setOutline(0);
-        tabs.setTabBarDepth(38);
+        tabs.setTabBarDepth(48);
+        tabs.setColour(juce::TabbedComponent::backgroundColourId, juce::Colour(surface));
+        tabs.setColour(juce::TabbedComponent::outlineColourId, juce::Colour(border));
         tabs.addTab("General", juce::Colour(surface), &general, false);
         tabs.addTab("Audio", juce::Colour(surface), &audio, false);
         tabs.addTab("Hotkeys", juce::Colour(surface), &hotkeys, false);
@@ -529,10 +549,20 @@ public:
         license.addAction("Manage Pro", [this] { owner.showProMenu(); });
         license.addAction("Restore purchases", [this] { owner.refreshEntitlement(true); });
         license.addText("Version " + juce::String(juce::JUCEApplication::getInstance()->getApplicationVersion()));
-        setSize(720, 500);
+        setSize(780, 550);
     }
 
-    void resized() override { tabs.setBounds(getLocalBounds()); }
+    void paint(juce::Graphics& g) override
+    {
+        g.fillAll(juce::Colour(background));
+        juce::ColourGradient glow(juce::Colour(accent).withAlpha(0.09f),
+                                  static_cast<float>(getWidth()) * 0.5f, -80.0f,
+                                  juce::Colours::transparentBlack,
+                                  static_cast<float>(getWidth()) * 0.5f, 260.0f, true);
+        g.setGradientFill(glow);
+        g.fillRect(getLocalBounds());
+    }
+    void resized() override { tabs.setBounds(getLocalBounds().reduced(14)); }
 
 private:
     class Page final : public juce::Component {
@@ -541,7 +571,7 @@ private:
         {
             auto* label = labels.add(new juce::Label());
             label->setText(value, juce::dontSendNotification);
-            label->setFont(juce::FontOptions(heading ? 17.0f : 13.0f,
+            label->setFont(juce::FontOptions(heading ? 18.0f : 13.0f,
                                              heading ? juce::Font::bold : juce::Font::plain));
             label->setColour(juce::Label::textColourId, juce::Colour(heading ? text : textMuted));
             addAndMakeVisible(label);
@@ -568,15 +598,27 @@ private:
             order.add(choice);
         }
 
-        void paint(juce::Graphics& g) override { g.fillAll(juce::Colour(surface)); }
+        void paint(juce::Graphics& g) override
+        {
+            g.fillAll(juce::Colour(surface));
+            const auto card = getLocalBounds().toFloat().reduced(18.0f, 16.0f);
+            g.setColour(juce::Colour(surfaceRaised));
+            g.fillRoundedRectangle(card, 12.0f);
+            g.setColour(juce::Colour(border));
+            g.drawRoundedRectangle(card.reduced(0.5f), 12.0f, 1.0f);
+            g.setColour(juce::Colour(accent));
+            g.fillRoundedRectangle(card.withWidth(3.0f).reduced(0.0f, 12.0f), 1.5f);
+        }
         void resized() override
         {
-            auto area = getLocalBounds().reduced(28, 24);
+            auto area = getLocalBounds().reduced(42, 34);
             for (auto* component : order) {
                 const auto isButton = dynamic_cast<juce::Button*>(component) != nullptr;
-                component->setBounds(area.removeFromTop(isButton ? 36 : 30)
-                                         .withWidth(isButton ? 250 : area.getWidth()));
-                area.removeFromTop(isButton ? 10 : 4);
+                const auto isChoice = dynamic_cast<juce::ComboBox*>(component) != nullptr;
+                const auto height = isButton || isChoice ? 38 : 30;
+                auto row = area.removeFromTop(height);
+                component->setBounds(row.withWidth(isButton ? 270 : isChoice ? 320 : row.getWidth()));
+                area.removeFromTop(isButton || isChoice ? 12 : 5);
             }
         }
 
